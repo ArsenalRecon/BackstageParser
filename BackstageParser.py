@@ -1,34 +1,39 @@
 #####
 # Backstage Parser
 # Thanks to David Cowen for his blog post --  http://www.hecfblog.com/2018/10/daily-blog-510-office-2016-backstage.html
-#     _                              _   ____                      
-#    / \   _ __ ___  ___ _ __   __ _| | |  _ \ ___  ___ ___  _ __  
-#   / _ \ | '__/ __|/ _ \ '_ \ / _` | | | |_) / _ \/ __/ _ \| '_ \ 
+#     _                              _   ____
+#    / \   _ __ ___  ___ _ __   __ _| | |  _ \ ___  ___ ___  _ __
+#   / _ \ | '__/ __|/ _ \ '_ \ / _` | | | |_) / _ \/ __/ _ \| '_ \
 #  / ___ \| |  \__ \  __/ | | | (_| | | |  _ <  __/ (_| (_) | | | |
 # /_/   \_\_|  |___/\___|_| |_|\__,_|_| |_| \_\___|\___\___/|_| |_|
 #
 #
-# To learn more about Arsenal's digital forensics software and training, 
+# To learn more about Arsenal's digital forensics software and training,
 # please visit https://ArsenalRecon.com and follow us on Twitter @ArsenalRecon (https://twitter.com/ArsenalRecon).
 #
-# To learn more about Arsenal's digital forensics consulting services, 
+# To learn more about Arsenal's digital forensics consulting services,
 # please visit https://ArsenalExperts.com and follow us on Twitter @ArsenalArmed (https://twitter.com/ArsenalArmed).
 #
 #
 ### Change Log ###
 #
+# 1.2 -- Adding argument parser, ignoring unicode chars to avoid crashes, fixed bug with wrong key name (UTC Human)
 # 1.1 -- Added JSON support
 # 1.0 -- Original implementation
-# 
+#
 #####
-                                                                  
-import sys
-import codecs
-from datetime import datetime, timedelta
-import re
-import os
-import json
 
+import os
+import re
+import sys
+import json
+import codecs
+import argparse
+
+from datetime import datetime, timedelta
+
+
+__description__ = "Backstage Parser"
 __version__ = "1.1"
 __updated__ = "2018-11-01"
 __author__ = "Arsenal Recon"
@@ -105,26 +110,21 @@ def getFiles(f):
 		currentLine = f.readline().strip('\r\n')
 	return files
 
-def main():
+def main(arguments):
 
 	try:
-		sys.argv[1]
-	except:
-		print ("Usage: %s file_to_parse" % sys.argv[0])
-		exit(0)
-	try:
-		fIn = codecs.open(sys.argv[1], 'r', encoding='utf-8')
+		fIn = codecs.open(arguments.INPUT_FILE, 'r', encoding='utf-8')
 	except Exception as e:
 		print ("%s" % e)
 		exit(0)
 	try:
-		fOut = codecs.open(sys.argv[1]+".tsv", 'w', encoding='utf-8')
+		fOut = codecs.open(arguments.INPUT_FILE+".tsv", 'w', encoding='utf-8')
 	except Exception as e:
 		print ("%s" % e)
 		exit(0)
 
 	###Parse Json files differently than non-json files..
-	if sys.argv[1].endswith(".json"):
+	if arguments.INPUT_FILE.endswith(".json"):
 		try:
 			json_string = fIn.read().decode('utf-16')
 		except:
@@ -152,7 +152,7 @@ def main():
 		## non-JSON files
 		##First line of file is the master directory
 		currentLine = fIn.readline()
-		masterFolder=currentLine
+		masterFolder=currentLine.encode("ascii", errors="replace")
 		print ("%s" % masterFolder)
 		fOut.write("%s" % masterFolder)
 		print ("Type\tPath\tName\tModified Time(Hex)\tModified Time (UTC)")
@@ -165,8 +165,8 @@ def main():
 			noFolders = False
 			#currentLine = f.readline().strip('\r\n')
 			for d in dirs:
-				print ("%s\t%s\t%s\t%s\t%s" % ("Folder", d["Path"], d["FolderName"],d["Modified Time(Hex)"], d["Modified Time(UTC)"]))
-				fOut.write("%s\t%s\t%s\t%s\t%s\n" % ("Folder", d["Path"], d["FolderName"],d["Modified Time(Hex)"], d["Modified Time(UTC)"]))
+				print ("%s\t%s\t%s\t%s\t%s" % ("Folder", d["Path"], d["FolderName"],d["Modified Time(Hex)"], d["Modified Time(Human-UTC)"]))
+				fOut.write("%s\t%s\t%s\t%s\t%s\n" % ("Folder", d["Path"], d["FolderName"],d["Modified Time(Hex)"], d["Modified Time(Human-UTC)"]))
 		else:
 			noFolders = True
 
@@ -174,12 +174,15 @@ def main():
 		if currentLine.strip('\r\n') == "[Files]" or noFolders == False:
 			files = getFiles(fIn)
 			for f in files:
-				print ("%s\t%s\t%s\t%s\t%s" % ("File", f["Path"], f["FolderName"],f["Modified Time(Hex)"], f["Modified Time(UTC)"]))
-				fOut.write("%s\t%s\t%s\t%s\t%s\n" % ("File", f["Path"], f["FolderName"],f["Modified Time(Hex)"], f["Modified Time(UTC)"]))
+				print ("%s\t%s\t%s\t%s\t%s" % ("File", f["Path"], f["FolderName"],f["Modified Time(Hex)"], f["Modified Time(Human-UTC)"]))
+				fOut.write("%s\t%s\t%s\t%s\t%s\n" % ("File", f["Path"], f["FolderName"],f["Modified Time(Hex)"], f["Modified Time(Human-UTC)"]))
 
 	fIn.close()
 	fOut.close()
 
 if __name__ == "__main__":
     # execute only if run as a script
-    main()
+	parser = argparse.ArgumentParser(description=__description__, version=__version__)
+	parser.add_argument("INPUT_FILE", help="Backstage File to Parse")
+	args = parser.parse_args()
+	main(args)
