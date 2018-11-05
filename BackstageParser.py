@@ -17,7 +17,7 @@
 #
 ### Change Log ###
 #
-# 1.2 -- Adding argument parser, ignoring unicode chars to avoid crashes, fixed bug with wrong key name (UTC Human)
+# 1.2 -- Adding argument parser, ignoring unicode chars to avoid crashes, fixed bug with wrong key name (UTC Human) - hadar0x
 # 1.1 -- Added JSON support
 # 1.0 -- Original implementation
 #
@@ -34,8 +34,8 @@ from datetime import datetime, timedelta
 
 
 __description__ = "Backstage Parser"
-__version__ = "1.1"
-__updated__ = "2018-11-01"
+__version__ = "1.2"
+__updated__ = "2018-11-05"
 __author__ = "Arsenal Recon"
 
 ######
