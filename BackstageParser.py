@@ -17,6 +17,7 @@
 #
 ### Change Log ###
 #
+# 1.3 -- Fixed code related to JSON processing
 # 1.2 -- Adding argument parser, ignoring unicode chars to avoid crashes, fixed bug with wrong key name (UTC Human) - hadar0x
 # 1.1 -- Added JSON support
 # 1.0 -- Original implementation
@@ -34,8 +35,8 @@ from datetime import datetime, timedelta
 
 
 __description__ = "Backstage Parser"
-__version__ = "1.2"
-__updated__ = "2018-11-05"
+__version__ = "1.3"
+__updated__ = "2018-12-26"
 __author__ = "Arsenal Recon"
 
 ######
@@ -47,7 +48,7 @@ def twos_comp(val, bits):
     if hex(val)[-1:] == "L":
     	return '0x'+hex(val)[-9:-1]
     else:
-		return '0x'+hex(val)[-8:]
+        return '0x'+hex(val)[-8:]
     return val
 
 
@@ -112,6 +113,42 @@ def getFiles(f):
 
 def main(arguments):
 
+    if arguments.INPUT_FILE.endswith(".json"):
+        try:
+            fIn = codecs.open(arguments.INPUT_FILE, 'r', encoding='utf-16le')
+            fOut = codecs.open(arguments.INPUT_FILE+".tsv", 'w', encoding='utf-8')
+
+        except Exception as e:
+            print (e)
+            exit(0)
+
+        try:
+            json_string = fIn.read()
+        except Exception as e:
+            print (e)
+            exit(0)
+
+        try:
+            parsed_json = json.loads(json_string)
+        except Exception as e:
+            print(e)
+            exit(0)
+
+        print ("Type\tURL\tDisplayName\tLastModified(Integer)\tLastModified (UTC)\tAuthor\tResourceId\tSharingLevelDescription")
+        fOut.write("Type\tURL\tDisplayName\tLastModified(Integer)\tLastModified (UTC)\tAuthor\tResourceId\tSharingLevelDescription\n")
+
+        for items in parsed_json['Folders']:
+            date = filetime_to_dt(items['LastModified'])
+            print("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s" % ("Folder", items['Url'], items['DisplayName'], items['LastModified'], date, items['Author'], items['ResourceId'], items['SharingLevelDescription']))
+            fOut.write("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n" % ("Folder", items['Url'], items['DisplayName'], items['LastModified'], date, items['Author'], items['ResourceId'], items['SharingLevelDescription']))
+
+        for items in parsed_json['Files']:
+            date = filetime_to_dt(items['LastModified'])
+            print("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s" % ("File", items['Url'], items['DisplayName'], items['LastModified'], date, items['Author'], items['ResourceId'], items['SharingLevelDescription']))
+            fOut.write("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n" % ("File", items['Url'], items['DisplayName'], items['LastModified'], date, items['Author'], items['ResourceId'], items['SharingLevelDescription']))
+        
+
+    else:
 	try:
 		fIn = codecs.open(arguments.INPUT_FILE, 'r', encoding='utf-8')
 	except Exception as e:
@@ -123,32 +160,7 @@ def main(arguments):
 		print ("%s" % e)
 		exit(0)
 
-	###Parse Json files differently than non-json files..
-	if arguments.INPUT_FILE.endswith(".json"):
-		try:
-			json_string = fIn.read().decode('utf-16')
-		except:
-			print (e)
-			exit(0)
-		try:
-			parsed_json = json.loads(json_string)
-		except Exception as e:
-			print(e)
 
-		print ("Type\tURL\tDisplayName\tLastModified(Integer)\tLastModified (UTC)\tAuthor\tResourceId\tSharingLevelDescription")
-		fOut.write("Type\tURL\tDisplayName\tLastModified(Integer)\tLastModified (UTC)\tAuthor\tResourceId\tSharingLevelDescription\n")
-
-		for items in parsed_json['Folders']:
-			date = filetime_to_dt(items['LastModified'])
-			print("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s" % ("Folder", items['Url'], items['DisplayName'], items['LastModified'], date, items['Author'], items['ResourceId'], items['SharingLevelDescription']))
-			fOut.write("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n" % ("Folder", items['Url'], items['DisplayName'], items['LastModified'], date, items['Author'], items['ResourceId'], items['SharingLevelDescription']))
-
-		for items in parsed_json['Files']:
-			date = filetime_to_dt(items['LastModified'])
-			print("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s" % ("File", items['Url'], items['DisplayName'], items['LastModified'], date, items['Author'], items['ResourceId'], items['SharingLevelDescription']))
-			fOut.write("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n" % ("File", items['Url'], items['DisplayName'], items['LastModified'], date, items['Author'], items['ResourceId'], items['SharingLevelDescription']))
-
-	else:
 		## non-JSON files
 		##First line of file is the master directory
 		currentLine = fIn.readline()
