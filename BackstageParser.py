@@ -17,6 +17,7 @@
 #
 ### Change Log ###
 #
+# 1.3.1 -- Fixed indentation issues
 # 1.3 -- Fixed code related to JSON processing
 # 1.2 -- Adding argument parser, ignoring unicode chars to avoid crashes, fixed bug with wrong key name (UTC Human) - hadar0x
 # 1.1 -- Added JSON support
@@ -35,8 +36,8 @@ from datetime import datetime, timedelta
 
 
 __description__ = "Backstage Parser"
-__version__ = "1.3"
-__updated__ = "2018-12-26"
+__version__ = "1.3.1"
+__updated__ = "2018-12-27"
 __author__ = "Arsenal Recon"
 
 ######
@@ -62,54 +63,54 @@ def filetime_to_dt(ft):
 
 def strToFileTime(val):
 
-		dates = val.split(':')
-		if len(dates) != 2:
-			print ("More information expected with dates %s" % str(dates))
-			exit(0)
-		dates[0] = twos_comp(int(dates[0]), 32)
-		if dates[0][0] == "-":
-			dates[0] = dates[0][3:]
-		else:
-			dates[0] = dates[0][2:]
-		dates[1] = hex(int(dates[1]))
-		fileTime = '0x'+dates[1][2:]+dates[0]
-		return fileTime
+    dates = val.split(':')
+    if len(dates) != 2:
+        print ("More information expected with dates %s" % str(dates))
+        exit(0)
+    dates[0] = twos_comp(int(dates[0]), 32)
+    if dates[0][0] == "-":
+        dates[0] = dates[0][3:]
+    else:
+        dates[0] = dates[0][2:]
+    dates[1] = hex(int(dates[1]))
+    fileTime = '0x'+dates[1][2:]+dates[0]
+    return fileTime
 
 
 def getDirs(f):
 
-	dirs = []
-	i = 0
-	currentLine = f.readline().strip('\r\n')
+    dirs = []
+    i = 0
+    currentLine = f.readline().strip('\r\n')
 	##loop on folders until we hit "[Files]"
-	while currentLine.strip('\r\n') != "[Files]" and currentLine.strip('\r\n') != '':
-		line = currentLine.split('|')
-		path = line[0]
-		foldername = line[1]
-		fileTimeDate = strToFileTime(line[-1])
-		humanTime = filetime_to_dt(int(fileTimeDate, 16))
-		dirs.append(i)
-		dirs[i] = {"Path": path, "FolderName":foldername, "Modified Time(Hex)":fileTimeDate, "Modified Time(Human-UTC)":humanTime}
-		i = i + 1
-		currentLine = f.readline().strip('\r\n')
-	return dirs
+    while currentLine.strip('\r\n') != "[Files]" and currentLine.strip('\r\n') != '':
+        line = currentLine.split('|')
+        path = line[0]
+        foldername = line[1]
+        fileTimeDate = strToFileTime(line[-1])
+        humanTime = filetime_to_dt(int(fileTimeDate, 16))
+        dirs.append(i)
+        dirs[i] = {"Path": path, "FolderName":foldername, "Modified Time(Hex)":fileTimeDate, "Modified Time(Human-UTC)":humanTime}
+        i = i + 1
+        currentLine = f.readline().strip('\r\n')
+    return dirs
 
 def getFiles(f):
 
-	files = []
-	i = 0
-	currentLine = f.readline().strip('\r\n')
-	while currentLine != '':
-		line = currentLine.split('|')
-		path = line[0]
-		filename = line[1]
-		fileTimeDate = strToFileTime(line[-1])
-		humanTime = filetime_to_dt(int(fileTimeDate, 16))
-		files.append(i)
-		files[i] = {"Path": path, "FolderName":filename, "Modified Time(Hex)":fileTimeDate, "Modified Time(Human-UTC)":humanTime}
-		i = i + 1
-		currentLine = f.readline().strip('\r\n')
-	return files
+    files = []
+    i = 0
+    currentLine = f.readline().strip('\r\n')
+    while currentLine != '':
+        line = currentLine.split('|')
+        path = line[0]
+        filename = line[1]
+        fileTimeDate = strToFileTime(line[-1])
+        humanTime = filetime_to_dt(int(fileTimeDate, 16))
+        files.append(i)
+        files[i] = {"Path": path, "FolderName":filename, "Modified Time(Hex)":fileTimeDate, "Modified Time(Human-UTC)":humanTime}
+        i = i + 1
+        currentLine = f.readline().strip('\r\n')
+    return files
 
 def main(arguments):
 
@@ -117,11 +118,10 @@ def main(arguments):
         try:
             fIn = codecs.open(arguments.INPUT_FILE, 'r', encoding='utf-16le')
             fOut = codecs.open(arguments.INPUT_FILE+".tsv", 'w', encoding='utf-8')
-
         except Exception as e:
             print (e)
             exit(0)
-
+            
         try:
             json_string = fIn.read()
         except Exception as e:
@@ -147,54 +147,52 @@ def main(arguments):
             print("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s" % ("File", items['Url'], items['DisplayName'], items['LastModified'], date, items['Author'], items['ResourceId'], items['SharingLevelDescription']))
             fOut.write("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n" % ("File", items['Url'], items['DisplayName'], items['LastModified'], date, items['Author'], items['ResourceId'], items['SharingLevelDescription']))
         
-
     else:
 	try:
-		fIn = codecs.open(arguments.INPUT_FILE, 'r', encoding='utf-8')
+            fIn = codecs.open(arguments.INPUT_FILE, 'r', encoding='utf-8')
 	except Exception as e:
-		print ("%s" % e)
-		exit(0)
+            print ("%s" % e)
+            exit(0)
 	try:
-		fOut = codecs.open(arguments.INPUT_FILE+".tsv", 'w', encoding='utf-8')
+            fOut = codecs.open(arguments.INPUT_FILE+".tsv", 'w', encoding='utf-8')
 	except Exception as e:
-		print ("%s" % e)
-		exit(0)
+            print ("%s" % e)
+            exit(0)
+                
 
+## non-JSON files
+##First line of file is the master directory
+        currentLine = fIn.readline()
+        masterFolder=currentLine.encode("ascii", errors="replace")
+        print ("%s" % masterFolder)
+        fOut.write("%s" % masterFolder)
+        print ("Type\tPath\tName\tModified Time(Hex)\tModified Time (UTC)")
+        fOut.write("Type\tPath\tName\tModified Time(Hex)\tModified Time (UTC)\n")
 
-		## non-JSON files
-		##First line of file is the master directory
-		currentLine = fIn.readline()
-		masterFolder=currentLine.encode("ascii", errors="replace")
-		print ("%s" % masterFolder)
-		fOut.write("%s" % masterFolder)
-		print ("Type\tPath\tName\tModified Time(Hex)\tModified Time (UTC)")
-		fOut.write("Type\tPath\tName\tModified Time(Hex)\tModified Time (UTC)\n")
+##Second line of file is "[Folders]"
+        currentLine = fIn.readline()
+        if currentLine.strip('\r\n') == "[Folders]":
+            dirs = getDirs(fIn)
+            noFolders = False
+#currentLine = f.readline().strip('\r\n')
+            for d in dirs:
+                print ("%s\t%s\t%s\t%s\t%s" % ("Folder", d["Path"], d["FolderName"],d["Modified Time(Hex)"], d["Modified Time(Human-UTC)"]))
+                fOut.write("%s\t%s\t%s\t%s\t%s\n" % ("Folder", d["Path"], d["FolderName"],d["Modified Time(Hex)"], d["Modified Time(Human-UTC)"]))
+        else:
+            noFolders = True            
+## Files
+            if currentLine.strip('\r\n') == "[Files]" or noFolders == False:
+                files = getFiles(fIn)
+                for f in files:
+                    print ("%s\t%s\t%s\t%s\t%s" % ("File", f["Path"], f["FolderName"],f["Modified Time(Hex)"], f["Modified Time(Human-UTC)"]))
+                    fOut.write("%s\t%s\t%s\t%s\t%s\n" % ("File", f["Path"], f["FolderName"],f["Modified Time(Hex)"], f["Modified Time(Human-UTC)"]))
 
-		##Second line of file is "[Folders]"
-		currentLine = fIn.readline()
-		if currentLine.strip('\r\n') == "[Folders]":
-			dirs = getDirs(fIn)
-			noFolders = False
-			#currentLine = f.readline().strip('\r\n')
-			for d in dirs:
-				print ("%s\t%s\t%s\t%s\t%s" % ("Folder", d["Path"], d["FolderName"],d["Modified Time(Hex)"], d["Modified Time(Human-UTC)"]))
-				fOut.write("%s\t%s\t%s\t%s\t%s\n" % ("Folder", d["Path"], d["FolderName"],d["Modified Time(Hex)"], d["Modified Time(Human-UTC)"]))
-		else:
-			noFolders = True
-
-		## Files
-		if currentLine.strip('\r\n') == "[Files]" or noFolders == False:
-			files = getFiles(fIn)
-			for f in files:
-				print ("%s\t%s\t%s\t%s\t%s" % ("File", f["Path"], f["FolderName"],f["Modified Time(Hex)"], f["Modified Time(Human-UTC)"]))
-				fOut.write("%s\t%s\t%s\t%s\t%s\n" % ("File", f["Path"], f["FolderName"],f["Modified Time(Hex)"], f["Modified Time(Human-UTC)"]))
-
-	fIn.close()
-	fOut.close()
+    fIn.close()
+    fOut.close()
 
 if __name__ == "__main__":
     # execute only if run as a script
-	parser = argparse.ArgumentParser(description=__description__, version=__version__)
-	parser.add_argument("INPUT_FILE", help="Backstage File to Parse")
-	args = parser.parse_args()
-	main(args)
+    parser = argparse.ArgumentParser(description=__description__, version=__version__)
+    parser.add_argument("INPUT_FILE", help="Backstage File to Parse")
+    args = parser.parse_args()
+    main(args)
