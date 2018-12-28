@@ -17,6 +17,7 @@
 #
 ### Change Log ###
 #
+# 1.3.2 -- More indentation issues
 # 1.3.1 -- Fixed indentation issues
 # 1.3 -- Fixed code related to JSON processing
 # 1.2 -- Adding argument parser, ignoring unicode chars to avoid crashes, fixed bug with wrong key name (UTC Human) - hadar0x
@@ -36,8 +37,8 @@ from datetime import datetime, timedelta
 
 
 __description__ = "Backstage Parser"
-__version__ = "1.3.1"
-__updated__ = "2018-12-27"
+__version__ = "1.3.2"
+__updated__ = "2018-12-28"
 __author__ = "Arsenal Recon"
 
 ######
@@ -159,7 +160,6 @@ def main(arguments):
             print ("%s" % e)
             exit(0)
                 
-
 ## non-JSON files
 ##First line of file is the master directory
         currentLine = fIn.readline()
@@ -181,11 +181,11 @@ def main(arguments):
         else:
             noFolders = True            
 ## Files
-            if currentLine.strip('\r\n') == "[Files]" or noFolders == False:
-                files = getFiles(fIn)
-                for f in files:
-                    print ("%s\t%s\t%s\t%s\t%s" % ("File", f["Path"], f["FolderName"],f["Modified Time(Hex)"], f["Modified Time(Human-UTC)"]))
-                    fOut.write("%s\t%s\t%s\t%s\t%s\n" % ("File", f["Path"], f["FolderName"],f["Modified Time(Hex)"], f["Modified Time(Human-UTC)"]))
+        if currentLine.strip('\r\n') == "[Files]" or noFolders == False:
+            files = getFiles(fIn)
+            for f in files:
+                print ("%s\t%s\t%s\t%s\t%s" % ("File", f["Path"], f["FolderName"],f["Modified Time(Hex)"], f["Modified Time(Human-UTC)"]))
+                fOut.write("%s\t%s\t%s\t%s\t%s\n" % ("File", f["Path"], f["FolderName"],f["Modified Time(Hex)"], f["Modified Time(Human-UTC)"]))
 
     fIn.close()
     fOut.close()
