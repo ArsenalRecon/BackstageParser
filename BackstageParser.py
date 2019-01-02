@@ -17,6 +17,7 @@
 #
 ### Change Log ###
 #
+# 1.4 -- Account for corrupted date field
 # 1.3.2 -- More indentation issues
 # 1.3.1 -- Fixed indentation issues
 # 1.3 -- Fixed code related to JSON processing
@@ -37,8 +38,8 @@ from datetime import datetime, timedelta
 
 
 __description__ = "Backstage Parser"
-__version__ = "1.3.2"
-__updated__ = "2018-12-28"
+__version__ = "1.4"
+__updated__ = "2019-01-01"
 __author__ = "Arsenal Recon"
 
 ######
@@ -73,7 +74,11 @@ def strToFileTime(val):
         dates[0] = dates[0][3:]
     else:
         dates[0] = dates[0][2:]
-    dates[1] = hex(int(dates[1]))
+    try:
+        dates[1] = hex(int(dates[1]))
+    except:
+        return "N/A"
+
     fileTime = '0x'+dates[1][2:]+dates[0]
     return fileTime
 
@@ -89,7 +94,10 @@ def getDirs(f):
         path = line[0]
         foldername = line[1]
         fileTimeDate = strToFileTime(line[-1])
-        humanTime = filetime_to_dt(int(fileTimeDate, 16))
+        if fileTimeDate != "N/A":
+            humanTime = filetime_to_dt(int(fileTimeDate, 16))
+        else:
+            humanTime = "N/A"
         dirs.append(i)
         dirs[i] = {"Path": path, "FolderName":foldername, "Modified Time(Hex)":fileTimeDate, "Modified Time(Human-UTC)":humanTime}
         i = i + 1
@@ -106,7 +114,10 @@ def getFiles(f):
         path = line[0]
         filename = line[1]
         fileTimeDate = strToFileTime(line[-1])
-        humanTime = filetime_to_dt(int(fileTimeDate, 16))
+        if fileTimeDate != "N/A":
+            humanTime = filetime_to_dt(int(fileTimeDate, 16))
+        else:
+            humanTime = "N/A"
         files.append(i)
         files[i] = {"Path": path, "FolderName":filename, "Modified Time(Hex)":fileTimeDate, "Modified Time(Human-UTC)":humanTime}
         i = i + 1
@@ -159,7 +170,7 @@ def main(arguments):
 	except Exception as e:
             print ("%s" % e)
             exit(0)
-                
+
 ## non-JSON files
 ##First line of file is the master directory
         currentLine = fIn.readline()
