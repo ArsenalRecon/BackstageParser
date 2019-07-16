@@ -14,16 +14,29 @@
 # To learn more about Arsenal's digital forensics consulting services,
 # please visit https://ArsenalExperts.com and follow us on Twitter @ArsenalArmed (https://twitter.com/ArsenalArmed).
 #
+### ToDo ###
+# Add carving functionality
+#
+###
+#
 #
 ### Change Log ###
 #
-# 1.4 -- Account for corrupted date field
+# 1.10  -- changed file output format to utf-16
+# 1.9   -- added "|" as option option
+# 1.8   -- added output to files
+# 1.7.1 -- added output summary
+# 1.7   -- added simple logging
+# 1.6.1 -- Fixed output/record logic
+# 1.6   -- Added carving (experimental)
+# 1.5   -- Restructured some of the code, added support for processing all files in a directory
+# 1.4   -- Account for corrupted date field
 # 1.3.2 -- More indentation issues
 # 1.3.1 -- Fixed indentation issues
-# 1.3 -- Fixed code related to JSON processing
-# 1.2 -- Adding argument parser, ignoring unicode chars to avoid crashes, fixed bug with wrong key name (UTC Human) - hadar0x
-# 1.1 -- Added JSON support
-# 1.0 -- Original implementation
+# 1.3   -- Fixed code related to JSON processing
+# 1.2   -- Adding argument parser, ignoring unicode chars to avoid crashes, fixed bug with wrong key name (UTC Human) - hadar0x
+# 1.1   -- Added JSON support
+# 1.0   -- Original implementation
 #
 #####
 
@@ -33,16 +46,178 @@ import sys
 import json
 import codecs
 import argparse
-
+import os
 from datetime import datetime, timedelta
 
 
 __description__ = "Backstage Parser"
-__version__ = "1.4"
-__updated__ = "2019-01-01"
+__version__ = "1.7"
+__updated__ = "2019-07-12"
 __author__ = "Arsenal Recon"
 
 ######
+
+def getFilesInDirectory(directory):
+
+    fileList = []
+    for root, dirnames, filenames in os.walk(directory):
+        for file in filenames:
+            fileList.append(os.path.join(root, file))
+    return fileList
+
+def processJSON(currentFile,logFile):
+
+    try:
+        fIn = codecs.open(currentFile, 'r', encoding='utf-16le')
+    except Exception as e:
+        logFile.write("Error (processJSON): %s\n" % e)
+    
+    try:
+        json_string = fIn.read()
+    except Exception as e:
+        logFile.write("Error (processJSON): %s\n" % e)
+
+    try:
+        parsed_json = json.loads(json_string)
+    except Exception as e:
+        logFile.write("Error (processJSON): %s\n" % e)
+        return None
+
+    records = {}
+    for items in parsed_json['Folders']:
+        date = filetime_to_dt(items['LastModified'])
+
+        records[items["Url"]] = {}
+        records[items["Url"]]['Source'] = currentFile
+        records[items["Url"]]['Type'] = "Folder"
+        records[items["Url"]]['Path'] = items["Url"]
+        records[items["Url"]]['Name'] = items["DisplayName"]
+        records[items["Url"]]['ModifiedTime'] = date  
+    
+    for items in parsed_json['Files']:
+        date = filetime_to_dt(items['LastModified'])
+
+        records[items["Url"]] = {}
+        records[items["Url"]]['Source'] = currentFile  
+        records[items["Url"]]['Type'] = "Folder"
+        records[items["Url"]]['Path'] = items["Url"]
+        records[items["Url"]]['Name'] = items["DisplayName"]
+        records[items["Url"]]['ModifiedTime'] = date  
+    return records
+    
+def processFile(currentFile,logFile):
+    try:
+        fIn = codecs.open(currentFile, 'r', encoding='utf-8')
+    except Exception as e:
+        logFile.write("Error (processFile): %s\n" % e)
+        return None
+
+
+    ## non-JSON files
+    ##First line of file is the master directory
+    try:
+        currentLine = fIn.readline()
+        masterFolder=currentLine#.encode("ascii", errors="replace")
+    except:
+        return None
+
+    records = {}
+    ##Second line of file is "[Folders]"
+    try:
+        currentLine = fIn.readline()
+    except:
+        return None
+
+    if currentLine.strip('\r\n') == "[Folders]":
+        dirs = getDirs(fIn)
+        noFolders = False
+    #currentLine = f.readline().strip('\r\n')
+        for d in dirs:
+            records[d["Path"]] = {}
+            records[d["Path"]]['Source'] = currentFile
+            records[d["Path"]]['Type'] = "Folder"
+            records[d["Path"]]['Path'] = d["Path"]
+            records[d["Path"]]['Name'] = d["FolderName"]
+            records[d["Path"]]['ModifiedTime'] = d["Modified Time(Human-UTC)"]           
+    else:
+        noFolders = True            
+    ## Files
+    if currentLine.strip('\r\n') == "[Files]" or noFolders == False:
+        files = getFiles(fIn)
+        for f in files:
+            records[f["Path"]] = {}
+            records[f["Path"]]['Source'] = currentFile
+            records[f["Path"]]['Type'] = "File"
+            records[f["Path"]]['Path'] = f["Path"]
+            records[f["Path"]]['Name'] = f["FolderName"]
+            records[f["Path"]]['ModifiedTime'] = f["Modified Time(Human-UTC)"]
+
+    return records
+
+def processRawFile(currentFile,logFile):
+    csvPattern = re.compile('(?:\\\\\\\\|[A-Z]:\\\\).+\|*\|.*\|[-]*[0-9]{8,10}:[0-9]{8}')
+    jsonPattern = re.compile('\{"Url": "(?:\\\\\\\\|[A-Z]:\\\\).+?", "DisplayName": ".*?", "Author": ".*?", "ResourceId": ".*?", "RootResourceId": ".*?", "LastModified": [0-9]+?, "SharingLevelDescription": ".*?"\}')
+    fIn = open(currentFile, 'rb')
+    bufferLen = 4096
+
+    try:
+        buffer = fIn.read(bufferLen)
+    except Exception as e:
+        logFile.write("Error (processRawFile): %s\n" % e)
+
+    records = {}
+    while buffer != None and buffer != b'':
+        try:
+            csvMatch = re.findall(csvPattern, buffer.decode('utf-8'))
+        except Exception as e:
+            logFile.write("Error (processRawFile): %s\n" % e)
+            pass
+        try:
+            jsonMatch = re.findall(jsonPattern, buffer.decode('utf-16'))
+        except Exception as e:
+            logFile.write("Error (processRawFile): %s\n" % e)
+            pass
+        import pdb; pdb.set_trace()
+        if csvMatch:
+            for match in csvMatch:
+                try:
+                    records[match.split('|')[0]] = {}
+                    records[match.split('|')[0]]['Source'] = currentFile
+                    records[match.split('|')[0]]['Type'] = 'CarvedRecord'
+                    records[match.split('|')[0]]['Path'] = match.split('|')[0]
+                    records[match.split('|')[0]]['Name'] = match.split('|')[1]
+                    fileTimeDate = strToFileTime(match.split('|')[4])
+                    if fileTimeDate != "N/A":
+                        humanTime = filetime_to_dt(int(fileTimeDate, 16))
+                    else:
+                        humanTime = "N/A"
+                    records[match.split('|')[0]]['ModifiedTime'] = humanTime  
+                except Exception as e:
+                    logFile.write("Error (processRawFile): %s\n" % e) 
+                    pass
+        if jsonMatch:
+            for match in jsonMatch:
+                try:
+                    thisMatch = re.match('.+?"Url": (".+?"), "DisplayName": (".+?"), "Author": (".*?"), "ResourceId": (".*?"), "RootResourceId": (".*?"), "LastModified": ([0-9]+), "SharingLevelDescription": (".*?").*', match)
+                    if thisMatch:
+                        records[thisMatch.group(1)] = {}
+                        records[thisMatch.group(1)]['Source'] = currentFile
+                        records[thisMatch.group(1)]['Type'] = 'CarvedRecord'
+                        records[thisMatch.group(1)]['Path'] = thisMatch.group(1)
+                        records[thisMatch.group(1)]['Name'] = thisMatch.group(2)
+                        date = filetime_to_dt(int(thisMatch.group(6)))
+                        records[thisMatch.group(1)]['ModifiedTime'] = date  
+                except Exception as e:
+                    logFile.write("Error (processRawFile): %s\n" % e) 
+                    pass            
+            print ("JSON Hit")
+        try:
+            buffer = fIn.read(bufferLen)
+        except Exception as e:
+            logFile.write("Error (processRawFile): %s\n" % e)
+            buffer = None
+    return records
+
 
 def twos_comp(val, bits):
 	#https://stackoverflow.com/questions/1604464/twos-complement-in-python
@@ -124,86 +299,104 @@ def getFiles(f):
         currentLine = f.readline().strip('\r\n')
     return files
 
+
+
+
 def main(arguments):
 
-    if arguments.INPUT_FILE.endswith(".json"):
-        try:
-            fIn = codecs.open(arguments.INPUT_FILE, 'r', encoding='utf-16le')
-            fOut = codecs.open(arguments.INPUT_FILE+".tsv", 'w', encoding='utf-8')
-        except Exception as e:
-            print (e)
-            exit(0)
-            
-        try:
-            json_string = fIn.read()
-        except Exception as e:
-            print (e)
-            exit(0)
+    fileList = []
+    now = datetime.now().strftime("%Y%m%d%H%M%S")
+    logFileName = 'backstage-'+now+'.log'
+    logFile = open(logFileName, 'w')
+    start = datetime.now()
 
-        try:
-            parsed_json = json.loads(json_string)
-        except Exception as e:
-            print(e)
-            exit(0)
+    if arguments.debug == True:
+        import pdb; pdb.set_trace()
+    if arguments.f:
+        fileList.append(arguments.f)
+    elif arguments.d:
+        fileList = getFilesInDirectory(arguments.d)
 
-        print ("Type\tURL\tDisplayName\tLastModified(Integer)\tLastModified (UTC)\tAuthor\tResourceId\tSharingLevelDescription")
-        fOut.write("Type\tURL\tDisplayName\tLastModified(Integer)\tLastModified (UTC)\tAuthor\tResourceId\tSharingLevelDescription\n")
+    masterList = {}
+    for currentFile in fileList:
 
-        for items in parsed_json['Folders']:
-            date = filetime_to_dt(items['LastModified'])
-            print("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s" % ("Folder", items['Url'], items['DisplayName'], items['LastModified'], date, items['Author'], items['ResourceId'], items['SharingLevelDescription']))
-            fOut.write("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n" % ("Folder", items['Url'], items['DisplayName'], items['LastModified'], date, items['Author'], items['ResourceId'], items['SharingLevelDescription']))
-
-        for items in parsed_json['Files']:
-            date = filetime_to_dt(items['LastModified'])
-            print("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s" % ("File", items['Url'], items['DisplayName'], items['LastModified'], date, items['Author'], items['ResourceId'], items['SharingLevelDescription']))
-            fOut.write("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n" % ("File", items['Url'], items['DisplayName'], items['LastModified'], date, items['Author'], items['ResourceId'], items['SharingLevelDescription']))
-        
-    else:
-	try:
-            fIn = codecs.open(arguments.INPUT_FILE, 'r', encoding='utf-8')
-	except Exception as e:
-            print ("%s" % e)
-            exit(0)
-	try:
-            fOut = codecs.open(arguments.INPUT_FILE+".tsv", 'w', encoding='utf-8')
-	except Exception as e:
-            print ("%s" % e)
-            exit(0)
-
-## non-JSON files
-##First line of file is the master directory
-        currentLine = fIn.readline()
-        masterFolder=currentLine.encode("ascii", errors="replace")
-        print ("%s" % masterFolder)
-        fOut.write("%s" % masterFolder)
-        print ("Type\tPath\tName\tModified Time(Hex)\tModified Time (UTC)")
-        fOut.write("Type\tPath\tName\tModified Time(Hex)\tModified Time (UTC)\n")
-
-##Second line of file is "[Folders]"
-        currentLine = fIn.readline()
-        if currentLine.strip('\r\n') == "[Folders]":
-            dirs = getDirs(fIn)
-            noFolders = False
-#currentLine = f.readline().strip('\r\n')
-            for d in dirs:
-                print ("%s\t%s\t%s\t%s\t%s" % ("Folder", d["Path"], d["FolderName"],d["Modified Time(Hex)"], d["Modified Time(Human-UTC)"]))
-                fOut.write("%s\t%s\t%s\t%s\t%s\n" % ("Folder", d["Path"], d["FolderName"],d["Modified Time(Hex)"], d["Modified Time(Human-UTC)"]))
+        logFile.write("Processing file: %s\n" % currentFile)
+        if arguments.r:
+            output = processRawFile(currentFile,logFile)
         else:
-            noFolders = True            
-## Files
-        if currentLine.strip('\r\n') == "[Files]" or noFolders == False:
-            files = getFiles(fIn)
-            for f in files:
-                print ("%s\t%s\t%s\t%s\t%s" % ("File", f["Path"], f["FolderName"],f["Modified Time(Hex)"], f["Modified Time(Human-UTC)"]))
-                fOut.write("%s\t%s\t%s\t%s\t%s\n" % ("File", f["Path"], f["FolderName"],f["Modified Time(Hex)"], f["Modified Time(Human-UTC)"]))
+            if currentFile.endswith(".json"):
+                output = processJSON(currentFile,logFile)
+            else:
+                output = processFile(currentFile,logFile)
+        if output != None:
+            masterList.update(output)
 
-    fIn.close()
-    fOut.close()
+
+    if masterList == None or len(masterList) == 0:
+        print ("No records found")
+        exit(0)
+
+    fOut = None
+    if arguments.o:
+        try:
+            fOut = open(arguments.o, 'w', encoding='utf-16')
+        except Exception as e:
+            logFile.write("Error opening output file: %s\n" % str(e))
+            arguments.o = None
+
+    if arguments.oj:
+        j = json.dumps(masterList)
+        print (j)
+        if arguments.o: fOut.write(j) 
+    elif arguments.ot:
+        print ("Type\tPath\tName\tModifiedTime(UTC)\tSoure")
+        for row in masterList:
+            print ("%s\t%s\t%s\t%s\t%s" % (masterList[row]['Type'], masterList[row]['Path'], masterList[row]['Name'],masterList[row]['ModifiedTime'],masterList[row]['Source']))
+            if arguments.o: fOut.write("%s\t%s\t%s\t%s\t%s\n" % (masterList[row]['Type'], masterList[row]['Path'], masterList[row]['Name'],masterList[row]['ModifiedTime'],masterList[row]['Source']))
+    elif arguments.op:
+        print ("Type|Path|Name|ModifiedTime(UTC)|Soure")
+        for row in masterList:
+            print ("%s|%s|%s|%s|%s" % (masterList[row]['Type'], masterList[row]['Path'], masterList[row]['Name'],masterList[row]['ModifiedTime'],masterList[row]['Source']))
+            if arguments.o: fOut.write("%s|%s|%s|%s|%s\n" % (masterList[row]['Type'], masterList[row]['Path'], masterList[row]['Name'],masterList[row]['ModifiedTime'],masterList[row]['Source']))
+    else:
+        print ("Type,Path,Name,ModifiedTime(UTC),Source")
+        for row in masterList:
+            print ("'%s','%s','%s','%s','%s'" % (masterList[row]['Type'], masterList[row]['Path'], masterList[row]['Name'],masterList[row]['ModifiedTime'],masterList[row]['Source']))
+            if arguments.o: fOut.write ("'%s','%s','%s','%s','%s'\n" % (masterList[row]['Type'], masterList[row]['Path'], masterList[row]['Name'],masterList[row]['ModifiedTime'],masterList[row]['Source']))
+
+    end = datetime.now()
+    print ("%d files processed, %d records found, %s elapsed time" % (len(fileList), len(masterList), str(end-start)))
+    logFile.write("%d files processed, %d records found, %s elapsed time\n" % (len(fileList), len(masterList), str(end-start)))
+    
+    if arguments.o: fOut.close()
+        
+    logFile.close()
 
 if __name__ == "__main__":
     # execute only if run as a script
-    parser = argparse.ArgumentParser(description=__description__, version=__version__)
-    parser.add_argument("INPUT_FILE", help="Backstage File to Parse")
+    parser = argparse.ArgumentParser(description=__description__)
+    parser.add_argument('--version', action='version', version=__version__)
+    parser.add_argument("-f",  help="Backstage File to Parse")
+    parser.add_argument("-d",  help="Directory containing Backstage file(s)")
+    parser.add_argument("-o",  help="Output Filename")
+    parser.add_argument("-r", action='store_true', help="Flag: Raw (binary) file --Experimental")
+
+    parser.add_argument("-oj", action='store_true', help="Flag: Output as JSON")
+    parser.add_argument("-ot", action='store_true', help="Flag: Output as TSV")
+    parser.add_argument("-oc", action='store_true', help="Flag: Output as CSV")
+    parser.add_argument("-op", action='store_true', help="Flag: Output as PSV")
+   
+    parser.add_argument("--debug", action='store_true', help="debug")
+    
     args = parser.parse_args()
+
+    if args.f and args.d:
+        print ("Choose file OR directory")
+        exit(0)
+
+
+    if sys.version_info <= (3,0):
+        print("Sorry, requires Python 3.x, not Python 2.x")
+        sys.exit(1)
+
     main(args)
