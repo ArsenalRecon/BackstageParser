@@ -52,7 +52,7 @@ from datetime import datetime, timedelta
 
 
 __description__ = "Backstage Parser"
-__version__ = "1.10"
+__version__ = "1.11"
 __updated__ = "2019-07-17"
 __author__ = "Arsenal Recon"
 
