@@ -22,6 +22,7 @@
 #
 ### Change Log ###
 #
+# 1.11  -- minor updates
 # 1.10  -- changed file output format to utf-16
 # 1.9   -- added "|" as option option
 # 1.8   -- added output to files
@@ -51,8 +52,8 @@ from datetime import datetime, timedelta
 
 
 __description__ = "Backstage Parser"
-__version__ = "1.7"
-__updated__ = "2019-07-12"
+__version__ = "1.10"
+__updated__ = "2019-07-17"
 __author__ = "Arsenal Recon"
 
 ######
@@ -376,17 +377,17 @@ if __name__ == "__main__":
     # execute only if run as a script
     parser = argparse.ArgumentParser(description=__description__)
     parser.add_argument('--version', action='version', version=__version__)
-    parser.add_argument("-f",  help="Backstage File to Parse")
+    parser.add_argument("-f",  help="Individual Backstage file to parse")
     parser.add_argument("-d",  help="Directory containing Backstage file(s)")
-    parser.add_argument("-o",  help="Output Filename")
-    parser.add_argument("-r", action='store_true', help="Flag: Raw (binary) file --Experimental")
+    parser.add_argument("-o",  help="Output filename")
+    parser.add_argument("-r", action='store_true', help="Flag: Carve Backstage records from raw file - experimental!")
 
     parser.add_argument("-oj", action='store_true', help="Flag: Output as JSON")
     parser.add_argument("-ot", action='store_true', help="Flag: Output as TSV")
     parser.add_argument("-oc", action='store_true', help="Flag: Output as CSV")
     parser.add_argument("-op", action='store_true', help="Flag: Output as PSV")
    
-    parser.add_argument("--debug", action='store_true', help="debug")
+    parser.add_argument("--debug", action='store_true', help="Flag: debug")
     
     args = parser.parse_args()
 
